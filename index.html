@@ -142,7 +142,7 @@
     </div>
   </div>
 
-  <script>
+    <script>
     const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8QgKi-vNZ_0xZIrcD8U7dQrNN5bK0_dWnIfblSHEm5nY2athnqU1I9XaISE92hIAxFw/exec';
     let lastClick = 0;
 
@@ -150,7 +150,7 @@
       try {
         showLoader();
         await liff.init({ liffId: '2007113580-wdWgVnky' });
-        
+
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
@@ -169,7 +169,7 @@
     function initializeUser(profile) {
       userId = profile.userId;
       displayName = profile.displayName;
-      
+
       document.getElementById('profilePic').src = profile.pictureUrl;
       document.getElementById('displayName').textContent = displayName;
     }
@@ -185,7 +185,7 @@
           action: 'get_user_details',
           userId: userId
         });
-        
+
         updateUserDetails(name, department);
         enableCheckButtons();
       } else {
@@ -237,7 +237,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       if (!response.ok) throw new Error('Network error');
       return response.json();
     } */
@@ -245,22 +245,24 @@
       try {
         const response = await fetch(APP_SCRIPT_URL, {
           method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Server error');
+        // Handle empty responses
+        const text = await response.text();
+        if (!text) {
+          throw new Error('Empty response from server');
         }
 
-        return await response.json();
+        return JSON.parse(text);
 
       } catch (error) {
-        console.error('Fetch error:', error);
+        console.error('Fetch error:', {
+          error,
+          payload,
+          url: APP_SCRIPT_URL
+        });
         throw new Error(`Request failed: ${error.message}`);
       }
     }
