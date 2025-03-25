@@ -4,21 +4,6 @@
   <title>Office Check-In</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* Add these styles */
-    .profile-section {
-      text-align: center;
-      margin: 20px 0;
-    }
-    .profile-pic {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      margin: 10px auto;
-    }
-    .button-disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
     .modal {
       display: none;
       position: fixed;
@@ -37,20 +22,11 @@
   </style>
 </head>
 <body>
-  <!-- Profile Section -->
-  <div id="profileSection" class="profile-section" style="display: none;">
-    <img id="profilePic" class="profile-pic" src="" alt="Profile Picture">
-    <h2 id="displayName"></h2>
-    <div>
-      <p>Name: <span id="userName"></span></p>
-      <p>Department: <span id="userDepartment"></span></p>
-    </div>
-  </div>
-
   <!-- Main Interface -->
-  <div id="mainApp" style="display: none; text-align: center;">
-    <button id="checkInBtn" onclick="checkIn()">Check In</button>
-    <button id="checkOutBtn" onclick="checkOut()">Check Out</button>
+  <div id="mainApp" style="display: none;">
+    <h1>Office Check-In</h1>
+    <button onclick="checkIn()">Check In</button>
+    <button onclick="checkOut()">Check Out</button>
   </div>
 
   <!-- Registration Modal -->
@@ -74,11 +50,9 @@
   <script>
     let userId = '';
     let displayName = '';
-    let pictureUrl = '';
-    const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8QgKi-vNZ_0xZIrcD8U7dQrNN5bK0_dWnIfblSHEm5nY2athnqU1I9XaISE92hIAxFw/exec';
 
     async function initializeApp() {
-      await liff.init({ liffId: '2007113580-wdWgVnky' });
+      await liff.init({ liffId: 'YOUR_LIFF_ID' });
       
       if (!liff.isLoggedIn()) {
         liff.login();
@@ -88,15 +62,9 @@
       const profile = await liff.getProfile();
       userId = profile.userId;
       displayName = profile.displayName;
-      pictureUrl = profile.pictureUrl;
-
-      // Show profile picture and display name immediately
-      document.getElementById('profileSection').style.display = 'block';
-      document.getElementById('profilePic').src = pictureUrl;
-      document.getElementById('displayName').textContent = displayName;
 
       // Check user registration
-      const userCheck = await fetch(APP_SCRIPT_URL, {
+      const response = await fetch(YOUR_APPSCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify({
           action: 'check_user',
@@ -104,50 +72,22 @@
         })
       });
       
-      const userResult = await userCheck.json();
-      if (userResult.exists) {
-        // Get user details from sheet
-        const userDetails = await fetch(APP_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'get_user_details',
-            userId: userId
-          })
-        });
-        
-        const details = await userDetails.json();
-        document.getElementById('userName').textContent = details.name;
-        document.getElementById('userDepartment').textContent = details.department;
-        
+      const result = await response.json();
+      if (result.exists) {
         showMainApp();
       } else {
         showRegistrationModal();
-        disableCheckButtons();
       }
     }
 
     function showMainApp() {
       document.getElementById('mainApp').style.display = 'block';
       document.getElementById('registrationModal').style.display = 'none';
-      enableCheckButtons();
     }
 
     function showRegistrationModal() {
+      document.getElementById('mainApp').style.display = 'none';
       document.getElementById('registrationModal').style.display = 'block';
-    }
-
-    function disableCheckButtons() {
-      document.getElementById('checkInBtn').classList.add('button-disabled');
-      document.getElementById('checkOutBtn').classList.add('button-disabled');
-      document.getElementById('checkInBtn').onclick = null;
-      document.getElementById('checkOutBtn').onclick = null;
-    }
-
-    function enableCheckButtons() {
-      document.getElementById('checkInBtn').classList.remove('button-disabled');
-      document.getElementById('checkOutBtn').classList.remove('button-disabled');
-      document.getElementById('checkInBtn').onclick = checkIn;
-      document.getElementById('checkOutBtn').onclick = checkOut;
     }
 
     async function handleRegistration(e) {
@@ -157,7 +97,7 @@
       const department = document.getElementById('department').value;
 
       try {
-        const response = await fetch(APP_SCRIPT_URL, {
+        const response = await fetch(YOUR_APPSCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({
             action: 'register',
@@ -170,28 +110,16 @@
 
         const result = await response.json();
         if (result.status === 'success') {
-          // Refresh user details
-          const userDetails = await fetch(APP_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-              action: 'get_user_details',
-              userId: userId
-            })
-          });
-          
-          const details = await userDetails.json();
-          document.getElementById('userName').textContent = details.name;
-          document.getElementById('userDepartment').textContent = details.department;
-          
           showMainApp();
-          document.getElementById('registrationModal').style.display = 'none';
+        } else {
+          alert('Registration failed. Please try again.');
         }
       } catch (err) {
         alert('Error: ' + err.message);
       }
     }
 
-    // Keep existing location and check functions
+    // Location and Check Functions
     async function getLocation(type) {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
@@ -203,7 +131,7 @@
     }
 
     async function sendCheckData(type, coords) {
-      const response = await fetch(APP_SCRIPT_URL, {
+      const response = await fetch(YOUR_APPSCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify({
           type: type,
@@ -235,6 +163,7 @@
       }
     }
 
+    // Initialize application
     initializeApp().catch(err => {
       console.error(err);
       alert('Error initializing application');
