@@ -1,24 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Office Check-In</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* Add these styles */
+    :root {
+      --primary-color: #00B900;
+      --error-color: #FF4444;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .loader {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.8);
+      z-index: 999;
+    }
+
     .profile-section {
       text-align: center;
-      margin: 20px 0;
+      margin: 2rem 0;
     }
+
     .profile-pic {
       width: 100px;
       height: 100px;
       border-radius: 50%;
-      margin: 10px auto;
+      border: 3px solid var(--primary-color);
     }
+
+    .check-buttons {
+      display: grid;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    button {
+      padding: 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .primary-btn {
+      background: var(--primary-color);
+      color: white;
+    }
+
     .button-disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
     }
+
     .modal {
       display: none;
       position: fixed;
@@ -27,218 +74,272 @@
       width: 100%;
       height: 100%;
       background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(2px);
     }
+
     .modal-content {
       background: white;
-      padding: 20px;
-      width: 300px;
-      margin: 100px auto;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      margin: 2rem auto;
+    }
+
+    .input-group {
+      margin-bottom: 1.5rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-top: 0.5rem;
+    }
+
+    .error-message {
+      color: var(--error-color);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <!-- Profile Section -->
-  <div id="profileSection" class="profile-section" style="display: none;">
-    <img id="profilePic" class="profile-pic" src="" alt="Profile Picture">
+  <div class="loader">Loading...</div>
+
+  <div class="profile-section">
+    <img id="profilePic" class="profile-pic" alt="Profile">
     <h2 id="displayName"></h2>
-    <div>
+    <div id="userDetails">
       <p>Name: <span id="userName"></span></p>
       <p>Department: <span id="userDepartment"></span></p>
     </div>
   </div>
 
-  <!-- Main Interface -->
-  <div id="mainApp" style="display: none; text-align: center;">
-    <button id="checkInBtn" onclick="checkIn()">Check In</button>
-    <button id="checkOutBtn" onclick="checkOut()">Check Out</button>
+  <div class="check-buttons">
+    <button class="primary-btn" id="checkInBtn">Check In</button>
+    <button class="primary-btn" id="checkOutBtn">Check Out</button>
   </div>
 
-  <!-- Registration Modal -->
   <div id="registrationModal" class="modal">
     <div class="modal-content">
       <h2>Complete Registration</h2>
-      <form onsubmit="handleRegistration(event)">
-        <div>
-          <label>Full Name:</label>
+      <form id="registrationForm">
+        <div class="input-group">
+          <label>Full Name</label>
           <input type="text" id="fullName" required>
+          <div class="error-message" id="nameError"></div>
         </div>
-        <div>
-          <label>Department:</label>
+        <div class="input-group">
+          <label>Department</label>
           <input type="text" id="department" required>
+          <div class="error-message" id="deptError"></div>
         </div>
-        <button type="submit">Register</button>
+        <button type="submit" class="primary-btn">Register</button>
       </form>
     </div>
   </div>
 
   <script>
-    let userId = '';
-    let displayName = '';
-    let pictureUrl = '';
     const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8QgKi-vNZ_0xZIrcD8U7dQrNN5bK0_dWnIfblSHEm5nY2athnqU1I9XaISE92hIAxFw/exec';
+    let lastClick = 0;
 
     async function initializeApp() {
-      await liff.init({ liffId: '2007113580-wdWgVnky' });
-      
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
+      try {
+        showLoader();
+        await liff.init({ liffId: '2007113580-wdWgVnky' });
+        
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
 
-      const profile = await liff.getProfile();
+        const profile = await liff.getProfile();
+        initializeUser(profile);
+        await checkRegistrationStatus();
+      } catch (error) {
+        showError(error);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    function initializeUser(profile) {
       userId = profile.userId;
       displayName = profile.displayName;
-      pictureUrl = profile.pictureUrl;
-
-      // Show profile picture and display name immediately
-      document.getElementById('profileSection').style.display = 'block';
-      document.getElementById('profilePic').src = pictureUrl;
-      document.getElementById('displayName').textContent = displayName;
-
-      // Check user registration
-      const userCheck = await fetch(APP_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'check_user',
-          userId: userId
-        })
-      });
       
-      const userResult = await userCheck.json();
-      if (userResult.exists) {
-        // Get user details from sheet
-        const userDetails = await fetch(APP_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'get_user_details',
-            userId: userId
-          })
+      document.getElementById('profilePic').src = profile.pictureUrl;
+      document.getElementById('displayName').textContent = displayName;
+    }
+
+    async function checkRegistrationStatus() {
+      const { exists } = await safeFetch(APP_SCRIPT_URL, {
+        action: 'check_user',
+        userId: userId
+      });
+
+      if (exists) {
+        const { name, department } = await safeFetch(APP_SCRIPT_URL, {
+          action: 'get_user_details',
+          userId: userId
         });
         
-        const details = await userDetails.json();
-        document.getElementById('userName').textContent = details.name;
-        document.getElementById('userDepartment').textContent = details.department;
-        
-        showMainApp();
+        updateUserDetails(name, department);
+        enableCheckButtons();
       } else {
         showRegistrationModal();
         disableCheckButtons();
       }
     }
 
-    function showMainApp() {
-      document.getElementById('mainApp').style.display = 'block';
-      document.getElementById('registrationModal').style.display = 'none';
-      enableCheckButtons();
+    async function handleRegistration(e) {
+      e.preventDefault();
+      if (Date.now() - lastClick < 2000) return;
+      lastClick = Date.now();
+
+      const name = document.getElementById('fullName').value.trim();
+      const department = document.getElementById('department').value.trim();
+
+      if (!validateRegistration(name, department)) return;
+
+      try {
+        showLoader();
+        await safeFetch(APP_SCRIPT_URL, {
+          action: 'register',
+          userId: userId,
+          displayName: displayName,
+          name: name,
+          department: department
+        });
+
+        const { name: newName, department: newDept } = await safeFetch(APP_SCRIPT_URL, {
+          action: 'get_user_details',
+          userId: userId
+        });
+
+        updateUserDetails(newName, newDept);
+        hideRegistrationModal();
+        enableCheckButtons();
+      } catch (error) {
+        showError(error);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    // Helper functions
+    async function safeFetch(url, payload) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) throw new Error('Network error');
+      return response.json();
+    }
+
+    function validateRegistration(name, department) {
+      let isValid = true;
+      
+      if (name.length < 2 || !/^[a-zA-Z\s]+$/.test(name)) {
+        showError('nameError', 'Invalid name');
+        isValid = false;
+      }
+      
+      if (department.length < 2) {
+        showError('deptError', 'Invalid department');
+        isValid = false;
+      }
+      
+      return isValid;
+    }
+
+    function updateUserDetails(name, department) {
+      document.getElementById('userName').textContent = name;
+      document.getElementById('userDepartment').textContent = department;
+    }
+
+    // UI Control functions
+    function showLoader() {
+      document.querySelector('.loader').style.display = 'block';
+    }
+
+    function hideLoader() {
+      document.querySelector('.loader').style.display = 'none';
+    }
+
+    function showError(elementId, message) {
+      if (typeof elementId === 'object') {
+        alert(`Error: ${elementId.message}`);
+        return;
+      }
+      const element = document.getElementById(elementId);
+      element.textContent = message;
+      element.style.display = 'block';
+    }
+
+    function enableCheckButtons() {
+      document.getElementById('checkInBtn').disabled = false;
+      document.getElementById('checkOutBtn').disabled = false;
+    }
+
+    function disableCheckButtons() {
+      document.getElementById('checkInBtn').disabled = true;
+      document.getElementById('checkOutBtn').disabled = true;
     }
 
     function showRegistrationModal() {
       document.getElementById('registrationModal').style.display = 'block';
     }
 
-    function disableCheckButtons() {
-      document.getElementById('checkInBtn').classList.add('button-disabled');
-      document.getElementById('checkOutBtn').classList.add('button-disabled');
-      document.getElementById('checkInBtn').onclick = null;
-      document.getElementById('checkOutBtn').onclick = null;
+    function hideRegistrationModal() {
+      document.getElementById('registrationModal').style.display = 'none';
     }
 
-    function enableCheckButtons() {
-      document.getElementById('checkInBtn').classList.remove('button-disabled');
-      document.getElementById('checkOutBtn').classList.remove('button-disabled');
-      document.getElementById('checkInBtn').onclick = checkIn;
-      document.getElementById('checkOutBtn').onclick = checkOut;
-    }
-
-    async function handleRegistration(e) {
-      e.preventDefault();
-      
-      const name = document.getElementById('fullName').value;
-      const department = document.getElementById('department').value;
+    // Check-in/out handlers
+    async function handleCheckInOut(type) {
+      if (Date.now() - lastClick < 2000) return;
+      lastClick = Date.now();
 
       try {
-        const response = await fetch(APP_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'register',
-            userId: userId,
-            displayName: displayName,
-            name: name,
-            department: department
-          })
-        });
-
-        const result = await response.json();
-        if (result.status === 'success') {
-          // Refresh user details
-          const userDetails = await fetch(APP_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-              action: 'get_user_details',
-              userId: userId
-            })
-          });
-          
-          const details = await userDetails.json();
-          document.getElementById('userName').textContent = details.name;
-          document.getElementById('userDepartment').textContent = details.department;
-          
-          showMainApp();
-          document.getElementById('registrationModal').style.display = 'none';
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    }
-
-    // Keep existing location and check functions
-    async function getLocation(type) {
-      return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          position => resolve(position.coords),
-          error => reject(error),
-          { enableHighAccuracy: true }
-        );
-      });
-    }
-
-    async function sendCheckData(type, coords) {
-      const response = await fetch(APP_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({
+        showLoader();
+        const coords = await getLocation();
+        const result = await safeFetch(APP_SCRIPT_URL, {
+          action: 'check_in_out',
           type: type,
           userId: userId,
           lat: coords.latitude,
           lon: coords.longitude
-        })
+        });
+        
+        alert(type === 'in' ? 'Checked in successfully!' : 'Checked out successfully!');
+      } catch (error) {
+        showError(error);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          position => resolve(position.coords),
+          error => reject(new Error('Please enable location services')),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
       });
-      return response.json();
     }
 
-    async function checkIn() {
-      try {
-        const coords = await getLocation('in');
-        const result = await sendCheckData('in', coords);
-        alert(result.status === 'success' ? 'Checked in!' : result.message);
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    }
+    // Event Listeners
+    document.getElementById('checkInBtn').addEventListener('click', () => handleCheckInOut('in'));
+    document.getElementById('checkOutBtn').addEventListener('click', () => handleCheckInOut('out'));
+    document.getElementById('registrationForm').addEventListener('submit', handleRegistration);
 
-    async function checkOut() {
-      try {
-        const coords = await getLocation('out');
-        const result = await sendCheckData('out', coords);
-        alert(result.status === 'success' ? 'Checked out!' : result.message);
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    }
-
-    initializeApp().catch(err => {
-      console.error(err);
-      alert('Error initializing application');
-    });
+    // Initialize app
+    initializeApp();
   </script>
 </body>
 </html>
