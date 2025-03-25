@@ -230,7 +230,7 @@
     }
 
     // Helper functions
-    async function safeFetch(url, payload) {
+    /* async function safeFetch(url, payload) {
       const response = await fetch(url, {
         method: 'POST',
         mode: 'cors',
@@ -240,21 +240,44 @@
       
       if (!response.ok) throw new Error('Network error');
       return response.json();
+    } */
+    async function safeFetch(payload) {
+      try {
+        const response = await fetch(APP_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Server error');
+        }
+
+        return await response.json();
+
+      } catch (error) {
+        console.error('Fetch error:', error);
+        throw new Error(`Request failed: ${error.message}`);
+      }
     }
 
     function validateRegistration(name, department) {
       let isValid = true;
-      
+
       if (name.length < 2 || !/^[a-zA-Z\s]+$/.test(name)) {
         showError('nameError', 'Invalid name');
         isValid = false;
       }
-      
+
       if (department.length < 2) {
         showError('deptError', 'Invalid department');
         isValid = false;
       }
-      
+
       return isValid;
     }
 
@@ -315,7 +338,7 @@
           lat: coords.latitude,
           lon: coords.longitude
         });
-        
+
         alert(type === 'in' ? 'Checked in successfully!' : 'Checked out successfully!');
       } catch (error) {
         // showError(error);
@@ -346,6 +369,6 @@
 
     // Initialize app
     initializeApp();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
