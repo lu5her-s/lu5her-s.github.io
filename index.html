@@ -233,6 +233,7 @@
     async function safeFetch(url, payload) {
       const response = await fetch(url, {
         method: 'POST',
+        mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -317,7 +318,12 @@
         
         alert(type === 'in' ? 'Checked in successfully!' : 'Checked out successfully!');
       } catch (error) {
-        showError(error);
+        // showError(error);
+        if (error.message.includes('CORS')) {
+          alert('CORS error, please check your network connection.');
+        } else {
+          alert(error.message);
+        }
       } finally {
         hideLoader();
       }
