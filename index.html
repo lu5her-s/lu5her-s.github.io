@@ -139,7 +139,7 @@
         hideLoader();
       }
     } */
-    async function handleCheckInOut(type) {
+    /* async function handleCheckInOut(type) {
       try {
         showLoader();
         const coords = await getLocation();
@@ -177,7 +177,7 @@
       } finally {
         hideLoader();
       }
-    }
+    } */
     /* function getLocation() {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
@@ -187,6 +187,46 @@
         );
       });
     } */
+    async function handleCheckInOut(type) {
+      try {
+        showLoader();
+        const coords = await getLocation();
+
+        const response = await fetch(APP_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: type,
+            userId: userId,
+            lat: coords.latitude,
+            lon: coords.longitude
+          })
+        });
+
+        // First get response text
+        const responseText = await response.text();
+
+        if (!responseText) {
+          throw new Error('Empty response from server');
+        }
+
+        // Then parse as JSON
+        const result = JSON.parse(responseText);
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        alert(`${type === 'in' ? 'Checked in' : 'Checked out'} successfully!`);
+
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+        console.error('API Error:', error);
+      } finally {
+        hideLoader();
+      }
+    }    
+
     function getLocation() {
       return new Promise((resolve, reject) => {
         // Use a fixed location for testing
