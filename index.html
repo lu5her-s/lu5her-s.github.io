@@ -16,29 +16,7 @@
       max-width: 480px;
       margin: 0 auto;
       padding: 20px;
-    }
-
-    .loader {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255,255,255,0.8);
-      z-index: 999;
-    }
-
-    .profile-section {
       text-align: center;
-      margin: 2rem 0;
-    }
-
-    .profile-pic {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      border: 3px solid var(--primary-color);
     }
 
     .check-buttons {
@@ -54,287 +32,57 @@
       font-size: 1.1rem;
       cursor: pointer;
       transition: opacity 0.2s;
-    }
-
-    .primary-btn {
-      background: var(--primary-color);
+      background: #00B900;
       color: white;
     }
 
-    .button-disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .modal {
+    .loader {
       display: none;
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(2px);
-    }
-
-    .modal-content {
-      background: white;
-      padding: 2rem;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 400px;
-      margin: 2rem auto;
-    }
-
-    .input-group {
-      margin-bottom: 1.5rem;
-    }
-
-    input {
-      width: 100%;
-      padding: 0.8rem;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      margin-top: 0.5rem;
-    }
-
-    .error-message {
-      color: var(--error-color);
-      font-size: 0.9rem;
-      margin-top: 0.5rem;
-      display: none;
+      background: rgba(255,255,255,0.8);
+      z-index: 999;
     }
   </style>
 </head>
 <body>
   <div class="loader">Loading...</div>
 
-  <div class="profile-section">
-    <img id="profilePic" class="profile-pic" alt="Profile">
-    <h2 id="displayName"></h2>
-    <div id="userDetails">
-      <p>Name: <span id="userName"></span></p>
-      <p>Department: <span id="userDepartment"></span></p>
-    </div>
-  </div>
-
+  <h1>Office Check-In</h1>
+  
   <div class="check-buttons">
-    <button class="primary-btn" id="checkInBtn">Check In</button>
-    <button class="primary-btn" id="checkOutBtn">Check Out</button>
+    <button id="checkInBtn">Check In</button>
+    <button id="checkOutBtn">Check Out</button>
   </div>
 
-  <div id="registrationModal" class="modal">
-    <div class="modal-content">
-      <h2>Complete Registration</h2>
-      <form id="registrationForm">
-        <div class="input-group">
-          <label>Full Name</label>
-          <input type="text" id="fullName" required>
-          <div class="error-message" id="nameError"></div>
-        </div>
-        <div class="input-group">
-          <label>Department</label>
-          <input type="text" id="department" required>
-          <div class="error-message" id="deptError"></div>
-        </div>
-        <button type="submit" class="primary-btn">Register</button>
-      </form>
-    </div>
-  </div>
-
-    <script>
+  <script>
     const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8QgKi-vNZ_0xZIrcD8U7dQrNN5bK0_dWnIfblSHEm5nY2athnqU1I9XaISE92hIAxFw/exec';
-    let lastClick = 0;
     let userId;
-    let displayName;
+    let lastClick = 0;
 
     async function initializeApp() {
       try {
         showLoader();
         await liff.init({ liffId: '2007113580-wdWgVnky' });
-
+        
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
         }
 
         const profile = await liff.getProfile();
-        initializeUser(profile);
-        await checkRegistrationStatus();
+        userId = profile.userId;
+        
       } catch (error) {
-        showError(error);
+        alert(`Error: ${error.message}`);
       } finally {
         hideLoader();
       }
     }
 
-    function initializeUser(profile) {
-      userId = profile.userId;
-      displayName = profile.displayName;
-
-      document.getElementById('profilePic').src = profile.pictureUrl;
-      document.getElementById('displayName').textContent = displayName;
-    }
-
-    async function checkRegistrationStatus() {
-      const { exists } = await safeFetch(APP_SCRIPT_URL, {
-        action: 'check_user',
-        userId: userId
-      });
-
-      if (exists) {
-        const { name, department } = await safeFetch(APP_SCRIPT_URL, {
-          action: 'get_user_details',
-          userId: userId
-        });
-
-        updateUserDetails(name, department);
-        enableCheckButtons();
-      } else {
-        showRegistrationModal();
-        disableCheckButtons();
-      }
-    }
-
-    async function handleRegistration(e) {
-      e.preventDefault();
-      if (Date.now() - lastClick < 2000) return;
-      lastClick = Date.now();
-
-      const name = document.getElementById('fullName').value.trim();
-      const department = document.getElementById('department').value.trim();
-
-      if (!validateRegistration(name, department)) return;
-
-      try {
-        showLoader();
-        await safeFetch(APP_SCRIPT_URL, {
-          action: 'register',
-          userId: userId,
-          displayName: displayName,
-          name: name,
-          department: department
-        });
-
-        const { name: newName, department: newDept } = await safeFetch(APP_SCRIPT_URL, {
-          action: 'get_user_details',
-          userId: userId
-        });
-
-        updateUserDetails(newName, newDept);
-        hideRegistrationModal();
-        enableCheckButtons();
-      } catch (error) {
-        showError(error);
-      } finally {
-        hideLoader();
-      }
-    }
-
-    // Helper functions
-    /* async function safeFetch(url, payload) {
-      const response = await fetch(url, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) throw new Error('Network error');
-      return response.json();
-    } */
-    function validateRequest(payload) {
-      if (!payload.action || !payload.userId) {
-        throw new Error("Invalid request parameters");
-      }
-    }
-
-    async function safeFetch(payload) {
-      validateRequest(payload);
-      try {
-        const response = await fetch(APP_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const text = await response.text();
-        if (!text) throw new Error('Empty server response');
-
-        const data = JSON.parse(text);
-        if (data.error) throw new Error(data.error);
-
-        return data;
-
-      } catch (error) {
-        console.error('Fetch Error:', {
-          error: error.message,
-          payload,
-          url: APP_SCRIPT_URL
-        });
-        throw error;
-      }
-    }
-
-    function validateRegistration(name, department) {
-      let isValid = true;
-
-      if (name.length < 2 || !/^[a-zA-Z\s]+$/.test(name)) {
-        showError('nameError', 'Invalid name');
-        isValid = false;
-      }
-
-      if (department.length < 2) {
-        showError('deptError', 'Invalid department');
-        isValid = false;
-      }
-
-      return isValid;
-    }
-
-    function updateUserDetails(name, department) {
-      document.getElementById('userName').textContent = name;
-      document.getElementById('userDepartment').textContent = department;
-    }
-
-    // UI Control functions
-    function showLoader() {
-      document.querySelector('.loader').style.display = 'block';
-    }
-
-    function hideLoader() {
-      document.querySelector('.loader').style.display = 'none';
-    }
-
-    function showError(elementId, message) {
-      if (typeof elementId === 'object') {
-        alert(`Error: ${elementId.message}`);
-        return;
-      }
-      const element = document.getElementById(elementId);
-      element.textContent = message;
-      element.style.display = 'block';
-    }
-
-    function enableCheckButtons() {
-      document.getElementById('checkInBtn').disabled = false;
-      document.getElementById('checkOutBtn').disabled = false;
-    }
-
-    function disableCheckButtons() {
-      document.getElementById('checkInBtn').disabled = true;
-      document.getElementById('checkOutBtn').disabled = true;
-    }
-
-    function showRegistrationModal() {
-      document.getElementById('registrationModal').style.display = 'block';
-    }
-
-    function hideRegistrationModal() {
-      document.getElementById('registrationModal').style.display = 'none';
-    }
-
-    // Check-in/out handlers
     async function handleCheckInOut(type) {
       if (Date.now() - lastClick < 2000) return;
       lastClick = Date.now();
@@ -342,22 +90,25 @@
       try {
         showLoader();
         const coords = await getLocation();
-        const result = await safeFetch(APP_SCRIPT_URL, {
-          action: 'check_in_out',
-          type: type,
-          userId: userId,
-          lat: coords.latitude,
-          lon: coords.longitude
+        
+        const response = await fetch(APP_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: type,
+            userId: userId,
+            lat: coords.latitude,
+            lon: coords.longitude
+          })
         });
 
-        alert(type === 'in' ? 'Checked in successfully!' : 'Checked out successfully!');
+        const result = await response.json();
+        alert(result.status === 'success' 
+          ? `${type === 'in' ? 'Checked in' : 'Checked out'} successfully!`
+          : result.message);
+
       } catch (error) {
-        // showError(error);
-        if (error.message.includes('CORS')) {
-          alert('CORS error, please check your network connection.');
-        } else {
-          alert(error.message);
-        }
+        alert(`Error: ${error.message}`);
       } finally {
         hideLoader();
       }
@@ -373,13 +124,20 @@
       });
     }
 
+    function showLoader() {
+      document.querySelector('.loader').style.display = 'block';
+    }
+
+    function hideLoader() {
+      document.querySelector('.loader').style.display = 'none';
+    }
+
     // Event Listeners
     document.getElementById('checkInBtn').addEventListener('click', () => handleCheckInOut('in'));
     document.getElementById('checkOutBtn').addEventListener('click', () => handleCheckInOut('out'));
-    document.getElementById('registrationForm').addEventListener('submit', handleRegistration);
 
     // Initialize app
     initializeApp();
-    </script>
-  </body>
+  </script>
+</body>
 </html>
