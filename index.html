@@ -71,6 +71,7 @@
   <div class="check-buttons">
     <button id="checkInBtn">Check In</button>
     <button id="checkOutBtn">Check Out</button>
+    <<h1>TEST LOCATION</h1>
   </div>
 
   <script>
@@ -138,13 +139,23 @@
       }
     }
 
-    function getLocation() {
+    /* function getLocation() {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           position => resolve(position.coords),
           error => reject(new Error('Please enable location services')),
           { enableHighAccuracy: true, timeout: 10000 }
         );
+      });
+    } */
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        // Use a fixed location for testing
+        const testLocation = {
+          latitude: 37.7749,  // Example latitude
+          longitude: -122.4194 // Example longitude
+        };
+        resolve(testLocation);
       });
     }
 
