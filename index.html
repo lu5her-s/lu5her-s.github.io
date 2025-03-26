@@ -109,7 +109,7 @@
       try {
         showLoader();
         const coords = await getLocation();
-        
+
         const response = await fetch(APP_SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -120,6 +120,11 @@
             lon: coords.longitude
           })
         });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Server error');
+        }
 
         const result = await response.json();
         alert(result.status === 'success' 
