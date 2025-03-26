@@ -19,6 +19,18 @@
       text-align: center;
     }
 
+    .profile-section {
+      margin: 2rem 0;
+    }
+
+    .profile-pic {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 3px solid var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
     .check-buttons {
       display: grid;
       gap: 1rem;
@@ -51,8 +63,11 @@
 <body>
   <div class="loader">Loading...</div>
 
-  <h1>Office Check-In</h1>
-  
+  <div class="profile-section">
+    <img id="profilePic" class="profile-pic" alt="Profile Picture">
+    <h2 id="displayName"></h2>
+  </div>
+
   <div class="check-buttons">
     <button id="checkInBtn">Check In</button>
     <button id="checkOutBtn">Check Out</button>
@@ -75,6 +90,10 @@
 
         const profile = await liff.getProfile();
         userId = profile.userId;
+        
+        // Display LINE profile info
+        document.getElementById('profilePic').src = profile.pictureUrl;
+        document.getElementById('displayName').textContent = profile.displayName;
         
       } catch (error) {
         alert(`Error: ${error.message}`);
