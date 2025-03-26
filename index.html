@@ -103,7 +103,7 @@
       }
     }
 
-    async function handleCheckInOut(type) {
+    /* async function handleCheckInOut(type) {
       if (Date.now() - lastClick < 2000) return;
       lastClick = Date.now();
 
@@ -138,8 +138,45 @@
       } finally {
         hideLoader();
       }
-    }
+    } */
+    async function handleCheckInOut(type) {
+      try {
+        showLoader();
+        const coords = await getLocation();
 
+        const response = await fetch(APP_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: type,
+            userId: userId,
+            lat: coords.latitude,
+            lon: coords.longitude
+          })
+        });
+
+        // First read response as text
+        const responseText = await response.text();
+
+        if (!responseText) {
+          throw new Error('Empty response from server');
+        }
+
+        // Then parse as JSON
+        const result = JSON.parse(responseText);
+
+        if (result.status === 'error') {
+          throw new Error(result.message);
+        }
+
+        alert(`${type === 'in' ? 'Checked in' : 'Checked out'} successfully!`);
+
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      } finally {
+        hideLoader();
+      }
+    }
     /* function getLocation() {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
@@ -174,6 +211,6 @@
 
     // Initialize app
     initializeApp();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
